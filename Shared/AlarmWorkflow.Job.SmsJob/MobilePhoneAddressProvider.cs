@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Xml.Linq;
 using AlarmWorkflow.Shared.Addressing;
 using AlarmWorkflow.Shared.Core;
@@ -32,6 +33,24 @@ namespace AlarmWorkflow.Job.SmsJob
             }
 
             return new MobilePhoneEntryObject() { PhoneNumber = phoneNumber };
+        }
+
+        XElement IAddressProvider.GetXmlData(object customData)
+        {
+            MobilePhoneEntryObject obj = (MobilePhoneEntryObject)customData;
+
+            XElement element = new XElement("MobilePhone");
+            element.Add(obj.PhoneNumber);
+            return element;
+        }
+
+        #endregion
+
+        #region IAddressProviderInfo Members
+
+        IEnumerable<ProviderDataDetail> IAddressProviderInfo.GetDataDetails()
+        {
+            yield return new ProviderDataDetail() { Name = "PhoneNumber" };
         }
 
         #endregion

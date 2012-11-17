@@ -50,6 +50,8 @@
     <Compile Include="Addressing\AddressBookEntry.cs" />
     <Compile Include="Addressing\IAddressBook.cs" />
     <Compile Include="Addressing\IAddressProvider.cs" />
+    <Compile Include="Addressing\IAddressProviderInfo.cs" />
+    <Compile Include="Addressing\ProviderDataDetail.cs" />
     <Compile Include="AlarmWorkflowConfiguration.cs">
       <SubType>Code</SubType>
     </Compile>

@@ -15,7 +15,6 @@ namespace AlarmWorkflow.Windows.Configuration.TypeEditors
     {
         #region Fields
 
-        private object _value;
         private Type _exportedType;
         private ExportConfiguration _configuration;
 
@@ -56,10 +55,8 @@ namespace AlarmWorkflow.Windows.Configuration.TypeEditors
             get { return _configuration; }
             set
             {
-                _value = value;
-
                 // Parse the export configuration
-                _configuration = ExportConfiguration.Parse((string)_value);
+                _configuration = ExportConfiguration.Parse((string)value);
                 // Add/Remove exports from the ETL (if exported type is available)
                 if (_exportedType != null)
                 {

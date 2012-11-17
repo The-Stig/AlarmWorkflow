@@ -3,19 +3,32 @@ using System.Collections.Generic;
 using System.Xml.Linq;
 using AlarmWorkflow.Shared.Core;
 using AlarmWorkflow.Shared.Diagnostics;
+using AlarmWorkflow.Shared.Settings;
 
 namespace AlarmWorkflow.Shared.Addressing
 {
     /// <summary>
     /// Implements the <see cref="IAddressBook"/>-interface.
     /// </summary>
-    internal sealed class AddressBook : IAddressBook
+    public sealed class AddressBook : IAddressBook, IStringSettingConvertible
     {
         #region Fields
 
         private List<IAddressProvider> _addressProviders;
 
         private List<AddressBookEntry> _entries;
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets the list of entries in this address book.
+        /// </summary>
+        public IList<AddressBookEntry> Entries
+        {
+            get { return _entries; }
+        }
 
         #endregion
 
@@ -36,50 +49,15 @@ namespace AlarmWorkflow.Shared.Addressing
 
         #region Methods
 
-        internal static IAddressBook Parse(string xmlContent)
+        /// <summary>
+        /// Parses the given (XML) string into a corresponding <see cref="AddressBook"/>-instance.
+        /// </summary>
+        /// <param name="xmlContent"></param>
+        /// <returns></returns>
+        public static AddressBook Parse(string xmlContent)
         {
-            Logger.Instance.LogFormat(LogType.Debug, null, Properties.Resources.AddressBook_StartScanMessage);
-
             AddressBook addressBook = new AddressBook();
-
-            // Parse document
-            XDocument doc = XDocument.Parse(xmlContent);
-
-            foreach (XElement entryE in doc.Root.Elements("Entry"))
-            {
-                AddressBookEntry entry = new AddressBookEntry();
-                entry.Name = entryE.TryGetAttributeValue("Name", null);
-
-                // Find all other custom attributes
-                foreach (XElement customElementE in entryE.Elements())
-                {
-                    string providerType = customElementE.Name.LocalName;
-
-                    IAddressProvider provider = addressBook.GetAddressProvider(providerType);
-                    if (provider == null)
-                    {
-                        continue;
-                    }
-
-                    if (!IsEnabled(customElementE))
-                    {
-                        continue;
-                    }
-
-                    object customObject = provider.ParseXElement(customElementE);
-                    if (customObject == null)
-                    {
-                        continue;
-                    }
-
-                    entry.CustomData[providerType] = customObject;
-                }
-
-                addressBook._entries.Add(entry);
-            }
-
-            Logger.Instance.LogFormat(LogType.Debug, null, Properties.Resources.AddressBook_FinishScanMessage, addressBook._entries.Count);
-
+            ((IStringSettingConvertible)addressBook).Convert(xmlContent);
             return addressBook;
         }
 
@@ -91,6 +69,34 @@ namespace AlarmWorkflow.Shared.Addressing
         private static bool IsEnabled(XElement customElementE)
         {
             return customElementE.TryGetAttributeValue("IsEnabled", true);
+        }
+
+        /// <summary>
+        /// Creates an XML-document that describes this instance.
+        /// </summary>
+        /// <returns></returns>
+        public string ToXml()
+        {
+            XDocument doc = new XDocument();
+            XElement root = new XElement("AddressBook");
+            doc.Add(root);
+
+            foreach (AddressBookEntry entry in _entries)
+            {
+                XElement entryE = new XElement("Entry");
+                entryE.Add(new XAttribute("Name", entry.Name));
+
+                foreach (var customData in entry.CustomData)
+                {
+                    IAddressProvider provider = GetAddressProvider(customData.Key);
+                    XElement customDataE = provider.GetXmlData(customData.Value);
+                    entryE.Add(customDataE);
+                }
+
+                root.Add(entryE);
+            }
+
+            return doc.ToString();
         }
 
         #endregion
@@ -113,6 +119,58 @@ namespace AlarmWorkflow.Shared.Addressing
                 }
                 yield return Tuple.Create<AddressBookEntry, TCustomData>(entry, (TCustomData)customData);
             }
+        }
+
+        #endregion
+
+        #region IStringSettingConvertible Members
+
+        void IStringSettingConvertible.Convert(string settingValue)
+        {
+            Logger.Instance.LogFormat(LogType.Debug, this, Properties.Resources.AddressBook_StartScanMessage);
+
+            // Parse document
+            XDocument doc = XDocument.Parse(settingValue);
+
+            foreach (XElement entryE in doc.Root.Elements("Entry"))
+            {
+                AddressBookEntry entry = new AddressBookEntry();
+                entry.Name = entryE.TryGetAttributeValue("Name", null);
+
+                // Find all other custom attributes
+                foreach (XElement customElementE in entryE.Elements())
+                {
+                    string providerType = customElementE.Name.LocalName;
+
+                    IAddressProvider provider = GetAddressProvider(providerType);
+                    if (provider == null)
+                    {
+                        continue;
+                    }
+
+                    if (!IsEnabled(customElementE))
+                    {
+                        continue;
+                    }
+
+                    object customObject = provider.ParseXElement(customElementE);
+                    if (customObject == null)
+                    {
+                        continue;
+                    }
+
+                    entry.CustomData[providerType] = customObject;
+                }
+
+                _entries.Add(entry);
+            }
+
+            Logger.Instance.LogFormat(LogType.Debug, this, Properties.Resources.AddressBook_FinishScanMessage, _entries.Count);
+        }
+
+        string IStringSettingConvertible.ConvertBack()
+        {
+            return ToXml();
         }
 
         #endregion
